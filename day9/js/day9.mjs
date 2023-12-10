@@ -25,7 +25,7 @@ function partOne(histories) {
 }
 
 function partTwo(histories) {
-    return histories.reverse().reduce((sum, history) => sum + extrapolateNextValue([...history].reverse()), 0)
+    return histories.reduce((sum, history) => sum + extrapolateNextValue([...history].reverse()), 0)
 }
 
 const input = readFileSync('input.txt', 'utf-8')
