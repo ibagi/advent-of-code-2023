@@ -1,20 +1,35 @@
-﻿using System.Text;
-
-var fileInput = File.ReadLines("input.txt").ToArray();
+﻿var fileInput = File.ReadLines("input.txt").ToArray();
 
 Console.WriteLine(PartOne(fileInput));
 Console.WriteLine(PartTwo(fileInput));
 
-int PartOne(string[] input)
+long PartOne(string[] input)
 {
-    var map = Expand(input).ToArray();
+    return MinimalDistanceSum(input, 1);
+}
+
+long PartTwo(string[] input)
+{
+    return MinimalDistanceSum(input, 1_000_000);
+}
+
+long MinimalDistanceSum(string[] input, int expansionRate)
+{
     var num = 0;
+    var map = input.ToArray();
+    var (rows, columns) = ExpansionIndices(map);
+
+    var expRate = expansionRate > 1
+        ? (expansionRate - 1)
+        : expansionRate;
 
     var nodes =
         from y in Enumerable.Range(0, map.Length)
         from x in Enumerable.Range(0, map[0].Length)
         where map[y][x] == '#'
-        select new Node(num++, x, y);
+        let expansionY = rows.Count(r => r < y) * expRate
+        let expansionX = columns.Count(c => c < x) * expRate
+        select new Node(num++, x + expansionX, y + expansionY);
 
     var nodeList = nodes.ToList();
 
@@ -24,15 +39,10 @@ int PartOne(string[] input)
         where first != second
         select new Pair(first, second);
 
-    return pairs.DistinctBy(x => x.Key).Aggregate(0, (sum, pair) => sum + pair.Distance);
+    return pairs.DistinctBy(x => x.Key).Aggregate(0L, (sum, pair) => sum + pair.Distance);
 }
 
-int PartTwo(string[] input)
-{
-    return 0;
-}
-
-IEnumerable<string> Expand(string[] input)
+(int[] Rows, int[] Columns) ExpansionIndices(string[] input)
 {
     var points =
         from y in Enumerable.Range(0, input.Length)
@@ -49,26 +59,8 @@ IEnumerable<string> Expand(string[] input)
         .Select(g => g.Key)
         .ToArray();
 
-    var lines = input.ToList();
-
-    for (var i = 0; i < rows.Length; i++)
-    {
-        lines.Insert(rows[i] + i, new string('.', input[0].Length));
-    }
-
-    foreach (var line in lines)
-    {
-        var sb = new StringBuilder(line);
-
-        for (var i = 0; i < columns.Length; i++)
-        {
-            sb.Insert(columns[i] + i, ".");
-        }
-
-        yield return sb.ToString();
-    }
+    return (rows, columns);
 }
-
 
 record PairKey(int MinNum, int MaxNum);
 
@@ -77,12 +69,12 @@ record Pair(Node First, Node Second)
     public PairKey Key =>
         new(Math.Min(First.Num, Second.Num), Math.Max(First.Num, Second.Num));
 
-    public int Distance =>
+    public long Distance =>
         First.Distance(Second);
 }
 
-record Node(int Num, int X, int Y)
+record Node(int Num, long X, long Y)
 {
-    public int Distance(Node other) =>
+    public long Distance(Node other) =>
         Math.Abs(X - other.X) + Math.Abs(Y - other.Y);
 }
