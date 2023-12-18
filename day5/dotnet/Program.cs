@@ -73,7 +73,7 @@ record Map(List<Link> Links)
     }
 
     public IEnumerable<Range> Process(List<Range> input) => Links
-        .Aggregate(input, (ranges, x) => 
+        .Aggregate(input, (ranges, x) =>
             ranges.SelectMany(range => range.MapThrough(x.SourceRange, x.DestinationRange)).ToList());
 }
 
@@ -95,30 +95,33 @@ record Range(long Start, long End)
     {
         var points = new[] { Start, End, range.Start, range.End }
             .Distinct()
-            .Where(x => x >= Start && x <= End)
             .OrderBy(x => x)
+            .Where(x => Start <= x && x <= End)
             .ToArray();
+
+        if(points.Length <= 1)
+        {
+            yield return this;
+        }
 
         for (var i = 0; i < points.Length - 1; i++)
         {
-            var subRange = new Range(points[i], points[i + 1] - 1);
+            var subRange = new Range(points[i], points[i + 1]);
 
-            if (IsIn(subRange) && range.IsIn(subRange))
+            if (Start <= subRange.Start && subRange.End <= End && 
+                range.Start <= subRange.Start && subRange.End <= range.End)
             {
                 var offset = subRange.Start - range.Start;
 
                 yield return new Range(
                     destination.Start + offset,
-                    destination.Start + offset + (subRange.End - subRange.Start)
+                    destination.Start + offset + (subRange.End - subRange.Start) - 1
                 );
+
+                continue;
             }
-            else
-            {
-                yield return subRange;
-            }
+            
+            yield return subRange with { End = subRange.End - 1 };
         }
     }
-
-    public bool IsIn(Range range) =>
-        Start <= range.Start && range.End <= End;
 }
