@@ -1,4 +1,6 @@
-﻿var rawInput = File.ReadLines("input.txt").ToArray();
+﻿using System.Collections.Concurrent;
+
+var rawInput = File.ReadLines("input.txt").ToArray();
 var bounds = new Bounds(rawInput[0].Length, rawInput.Length);
 
 var nodes =
@@ -10,18 +12,37 @@ var nodes =
      select (position, nodeType: GetNodeType(value))).ToDictionary(x => x.position, x => x.nodeType);
 
 Console.WriteLine(PartOne(nodes, bounds));
+Console.WriteLine(PartTwo(nodes, bounds));
 
 static int PartOne(Dictionary<Position, NodeType> nodes, Bounds bounds)
 {
-    var start = new TraverseState(new Position(0, 0), Direction.Right);
-    var visited = Traverse(start, nodes, bounds);
-    return visited.DistinctBy(x => x.Position).Count();
+    var start = new Cursor(new Position(0, 0), Direction.Right);
+    return Traverse(start, nodes, bounds);
 }
 
-static HashSet<TraverseState> Traverse(TraverseState start, Dictionary<Position, NodeType> nodes, Bounds bounds)
+static int PartTwo(Dictionary<Position, NodeType> nodes, Bounds bounds)
 {
-    var visited = new HashSet<TraverseState>();
-    var queue = new Queue<TraverseState>();
+    var energizedCells = new ConcurrentBag<int>();
+
+    Parallel.For(0, bounds.Y, y =>
+    {
+        energizedCells.Add(Traverse(new(new(0, y), Direction.Right), nodes, bounds));
+        energizedCells.Add(Traverse(new(new(bounds.X - 1, y), Direction.Left), nodes, bounds));
+    });
+
+    Parallel.For(0, bounds.X, x =>
+    {
+        energizedCells.Add(Traverse(new(new(x, 0), Direction.Down), nodes, bounds));
+        energizedCells.Add(Traverse(new(new(x, bounds.Y - 1), Direction.Up), nodes, bounds));
+    });
+
+    return energizedCells.Max();
+}
+
+static int Traverse(Cursor start, Dictionary<Position, NodeType> nodes, Bounds bounds)
+{
+    var visited = new HashSet<Cursor>();
+    var queue = new Queue<Cursor>();
 
     queue.Enqueue(start);
 
@@ -47,8 +68,9 @@ static HashSet<TraverseState> Traverse(TraverseState start, Dictionary<Position,
                 Direction.Left => pos with { X = pos.X - 1 }
             };
 
-            var nextState = new TraverseState(nextPostion, state.Direction);
+            var nextState = new Cursor(nextPostion, state.Direction);
             queue.Enqueue(nextState);
+
             continue;
         }
 
@@ -88,7 +110,7 @@ static HashSet<TraverseState> Traverse(TraverseState start, Dictionary<Position,
             (NodeType.MirrorBack, Direction.Down) =>
                 [new(pos with { X = pos.X + 1 }, Direction.Right)],
             (NodeType.MirrorBack, Direction.Left) =>
-                new TraverseState[] { new(pos with { Y = pos.Y - 1 }, Direction.Up) }
+                new Cursor[] { new(pos with { Y = pos.Y - 1 }, Direction.Up) }
         };
 
         foreach (var s in newStates)
@@ -97,7 +119,7 @@ static HashSet<TraverseState> Traverse(TraverseState start, Dictionary<Position,
         }
     }
 
-    return visited;
+    return visited.DistinctBy(x => x.Position).Count();
 }
 
 static NodeType GetNodeType(char value) => value switch
@@ -125,7 +147,7 @@ enum Direction
     Left
 }
 
-record TraverseState(Position Position, Direction Direction);
+record Cursor(Position Position, Direction Direction);
 
 record Position(int X, int Y)
 {
